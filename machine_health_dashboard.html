@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Machine Health & Maintenance Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2333;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #7d8590;
+    --accent: #f78166;
+    --accent2: #79c0ff;
+    --accent3: #56d364;
+    --accent4: #ffa657;
+    --accent5: #bc8cff;
+    --danger: #f85149;
+    --warn: #e3b341;
+    --chart1: #58a6ff;
+    --chart2: #f78166;
+    --chart3: #56d364;
+    --chart4: #ffa657;
+    --chart5: #bc8cff;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* ── TOP HEADER ── */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .logo-mark {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--chart1), var(--chart5));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .header-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
+  .header-sub { font-size: 11px; color: var(--muted); }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .badge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+  .badge.live { border-color: var(--accent3); color: var(--accent3); }
+  .badge.live::before { content: '● '; font-size: 8px; }
+
+  /* ── FILTER BAR ── */
+  .filters {
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 28px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .filter-label { font-size: 11px; color: var(--muted); margin-right: 4px; }
+  .filter-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 5px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+  }
+  .filter-btn:hover, .filter-btn.active {
+    border-color: var(--chart1);
+    color: var(--chart1);
+    background: rgba(88,166,255,0.08);
+  }
+  .filter-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+
+  /* ── MAIN LAYOUT ── */
+  .main { padding: 24px 28px; max-width: 1600px; margin: 0 auto; }
+
+  /* ── KPI STRIP ── */
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+  @media (max-width: 1100px) { .kpi-strip { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 600px) { .kpi-strip { grid-template-columns: repeat(2, 1fr); } }
+
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .kpi:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+  .kpi::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .kpi.blue::before { background: var(--chart1); }
+  .kpi.red::before { background: var(--chart2); }
+  .kpi.green::before { background: var(--chart3); }
+  .kpi.orange::before { background: var(--chart4); }
+  .kpi.purple::before { background: var(--chart5); }
+  .kpi.teal::before { background: #2dd4bf; }
+
+  .kpi-icon { font-size: 18px; margin-bottom: 8px; opacity: 0.8; }
+  .kpi-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .kpi-value { font-size: 26px; font-weight: 700; letter-spacing: -1px; font-family: 'Space Mono', monospace; }
+  .kpi-delta { font-size: 11px; margin-top: 6px; }
+  .kpi-delta.up { color: var(--accent3); }
+  .kpi-delta.down { color: var(--danger); }
+  .kpi-delta.neutral { color: var(--muted); }
+
+  /* ── GRID LAYOUTS ── */
+  .row { display: grid; gap: 16px; margin-bottom: 16px; }
+  .row-3-1 { grid-template-columns: 3fr 1fr; }
+  .row-2-1 { grid-template-columns: 2fr 1fr; }
+  .row-1-1 { grid-template-columns: 1fr 1fr; }
+  .row-1-1-1 { grid-template-columns: 1fr 1fr 1fr; }
+  @media (max-width: 900px) {
+    .row-3-1, .row-2-1, .row-1-1, .row-1-1-1 { grid-template-columns: 1fr; }
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    transition: box-shadow 0.2s;
+  }
+  .card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+  .card-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 18px;
+  }
+  .card-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .card-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .card-badge {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+  .chart-wrap { position: relative; width: 100%; }
+  .chart-wrap canvas { width: 100% !important; }
+
+  /* ── TABLE ── */
+  .risk-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .risk-table th {
+    text-align: left; padding: 8px 10px;
+    font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .risk-table td {
+    padding: 10px 10px;
+    border-bottom: 1px solid rgba(48,54,61,0.5);
+    vertical-align: middle;
+  }
+  .risk-table tr:hover td { background: var(--surface2); }
+  .risk-table tr:last-child td { border-bottom: none; }
+
+  .status-pill {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 600;
+    font-family: 'Space Mono', monospace;
+  }
+  .pill-critical { background: rgba(248,81,73,0.15); color: #f85149; border: 1px solid rgba(248,81,73,0.3); }
+  .pill-warning  { background: rgba(227,179,65,0.15); color: #e3b341; border: 1px solid rgba(227,179,65,0.3); }
+  .pill-normal   { background: rgba(86,211,100,0.15); color: #56d364; border: 1px solid rgba(86,211,100,0.3); }
+  .pill-high     { background: rgba(255,166,87,0.15); color: #ffa657; border: 1px solid rgba(255,166,87,0.3); }
+
+  /* ── DONUT LEGEND ── */
+  .donut-legend { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .legend-name { flex: 1; color: var(--muted); }
+  .legend-val { font-family: 'Space Mono', monospace; font-size: 11px; }
+  .legend-pct { color: var(--muted); font-size: 10px; margin-left: 4px; }
+
+  /* ── MINI SPARKLINE ── */
+  .sparkline-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-top: 4px;
+  }
+  .spark-item {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .spark-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .spark-value { font-size: 20px; font-weight: 700; font-family: 'Space Mono', monospace; margin-bottom: 8px; }
+  .spark-value.blue { color: var(--chart1); }
+  .spark-value.orange { color: var(--chart4); }
+  .spark-value.purple { color: var(--chart5); }
+
+  /* ── BAR RACE ── */
+  .bar-race { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+  .br-item { }
+  .br-header { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px; }
+  .br-id { font-family: 'Space Mono', monospace; font-weight: 700; }
+  .br-val { color: var(--muted); }
+  .br-track { height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+  .br-fill { height: 100%; border-radius: 4px; transition: width 0.8s ease; }
+
+  /* ── FOOTER ── */
+  .footer {
+    text-align: center;
+    padding: 20px;
+    font-size: 11px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+  }
+
+  /* ── ANIMATE IN ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .kpi { animation: fadeUp 0.4s ease both; }
+  .kpi:nth-child(1) { animation-delay: 0.05s; }
+  .kpi:nth-child(2) { animation-delay: 0.10s; }
+  .kpi:nth-child(3) { animation-delay: 0.15s; }
+  .kpi:nth-child(4) { animation-delay: 0.20s; }
+  .kpi:nth-child(5) { animation-delay: 0.25s; }
+  .kpi:nth-child(6) { animation-delay: 0.30s; }
+  .card { animation: fadeUp 0.5s ease both; animation-delay: 0.35s; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="logo-mark">⚙️</div>
+    <div>
+      <div class="header-title">Machine Health & Maintenance Dashboard</div>
+      <div class="header-sub">Manufacturing Operations Intelligence</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="badge">Jan 2025 – Apr 2027</span>
+    <span class="badge live">Live</span>
+    <span class="badge">Updated: Apr 2027</span>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filters">
+  <span class="filter-label">Plant:</span>
+  <button class="filter-btn active" onclick="setPlant('All',this)">All</button>
+  <button class="filter-btn" onclick="setPlant('Plant_A',this)">Plant A</button>
+  <button class="filter-btn" onclick="setPlant('Plant_B',this)">Plant B</button>
+  <button class="filter-btn" onclick="setPlant('Plant_C',this)">Plant C</button>
+  <div class="filter-sep"></div>
+  <span class="filter-label">Metric:</span>
+  <button class="filter-btn active" id="metricDefects" onclick="setMetric('defects',this)">Defects</button>
+  <button class="filter-btn" id="metricMaint" onclick="setMetric('maint',this)">Maintenance</button>
+  <button class="filter-btn" id="metricVib" onclick="setMetric('vib',this)">Vibration</button>
+  <button class="filter-btn" id="metricTemp" onclick="setMetric('temp',this)">Temperature</button>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- KPI STRIP -->
+  <div class="kpi-strip">
+    <div class="kpi blue">
+      <div class="kpi-icon">🔍</div>
+      <div class="kpi-label">Total Defects</div>
+      <div class="kpi-value" id="kpi-defects">59,871</div>
+      <div class="kpi-delta up" id="kpi-defects-d">↑ Tracked over 27 months</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-icon">🔧</div>
+      <div class="kpi-label">Maintenance Events</div>
+      <div class="kpi-value" id="kpi-maint">2,032</div>
+      <div class="kpi-delta neutral">Flags triggered in period</div>
+    </div>
+    <div class="kpi orange">
+      <div class="kpi-icon">📳</div>
+      <div class="kpi-label">Avg Vibration</div>
+      <div class="kpi-value" id="kpi-vib">5.0 <span style="font-size:14px;color:var(--muted)">mm/s</span></div>
+      <div class="kpi-delta neutral">Stable across fleet</div>
+    </div>
+    <div class="kpi purple">
+      <div class="kpi-icon">🌡️</div>
+      <div class="kpi-label">Avg Temperature</div>
+      <div class="kpi-value" id="kpi-temp">69.9 <span style="font-size:14px;color:var(--muted)">°C</span></div>
+      <div class="kpi-delta neutral">Normal operating range</div>
+    </div>
+    <div class="kpi green">
+      <div class="kpi-icon">⚡</div>
+      <div class="kpi-label">Total Energy</div>
+      <div class="kpi-value">5.0M <span style="font-size:14px;color:var(--muted)">kWh</span></div>
+      <div class="kpi-delta up">Across all plants</div>
+    </div>
+    <div class="kpi teal">
+      <div class="kpi-icon">🏭</div>
+      <div class="kpi-label">Production Units</div>
+      <div class="kpi-value">2.5M</div>
+      <div class="kpi-delta up">Total output</div>
+    </div>
+  </div>
+
+  <!-- ROW 1: Main trend + plant donut -->
+  <div class="row row-3-1">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title" id="trend-title">Monthly Defect Trend</div>
+          <div class="card-sub">All plants · Jan 2025 – Apr 2027</div>
+        </div>
+        <span class="card-badge" id="trend-total">59,871 total</span>
+      </div>
+      <div class="chart-wrap" style="height:220px">
+        <canvas id="mainTrendChart"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Defects by Plant</div>
+          <div class="card-sub">Distribution across sites</div>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:160px">
+        <canvas id="plantDonut"></canvas>
+      </div>
+      <div class="donut-legend">
+        <div class="legend-item">
+          <div class="legend-dot" style="background:var(--chart1)"></div>
+          <span class="legend-name">Plant A – Detroit</span>
+          <span class="legend-val">19,735</span><span class="legend-pct">(33%)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:var(--chart2)"></div>
+          <span class="legend-name">Plant B – Chicago</span>
+          <span class="legend-val">20,647</span><span class="legend-pct">(34%)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:var(--chart3)"></div>
+          <span class="legend-name">Plant C – Houston</span>
+          <span class="legend-val">19,489</span><span class="legend-pct">(33%)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 2: Sensor trends -->
+  <div class="row row-1-1-1">
+    <div class="card">
+      <div class="card-header">
+        <div><div class="card-title">🌡 Temperature Trend</div><div class="card-sub">Avg °C per month</div></div>
+        <span class="card-badge">69.9°C avg</span>
+      </div>
+      <div class="chart-wrap" style="height:140px">
+        <canvas id="tempChart"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div><div class="card-title">📳 Vibration Trend</div><div class="card-sub">Avg mm/s per month</div></div>
+        <span class="card-badge">5.0 mm/s avg</span>
+      </div>
+      <div class="chart-wrap" style="height:140px">
+        <canvas id="vibChart"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div><div class="card-title">💨 Pressure Trend</div><div class="card-sub">Avg PSI per month</div></div>
+        <span class="card-badge">30.0 PSI avg</span>
+      </div>
+      <div class="chart-wrap" style="height:140px">
+        <canvas id="presChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 3: Top machines + maintenance bar + risk table -->
+  <div class="row row-1-1">
+    <div class="card">
+      <div class="card-header">
+        <div><div class="card-title">Top 10 Machines by Defects</div><div class="card-sub">Ranked by total defect count</div></div>
+      </div>
+      <div class="bar-race" id="barRace"></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div><div class="card-title">Maintenance Events by Month</div><div class="card-sub">Monthly flag count</div></div>
+        <span class="card-badge">2,032 total</span>
+      </div>
+      <div class="chart-wrap" style="height:240px">
+        <canvas id="maintChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 4: Risk table full width -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">⚠️ Top-Risk Machines</div>
+        <div class="card-sub">Ranked by defect count · All plants</div>
+      </div>
+      <span class="card-badge">10 machines shown</span>
+    </div>
+    <table class="risk-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Machine ID</th>
+          <th>Defect Count</th>
+          <th>Maint Events</th>
+          <th>Avg Vibration</th>
+          <th>Risk Level</th>
+        </tr>
+      </thead>
+      <tbody id="riskTableBody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<div class="footer">
+  Machine Health &amp; Maintenance Dashboard · Data: Jan 2025 – Apr 2027 · 20,000 sensor readings · 3 plants · 50 machines
+</div>
+
+<script>
+/* ─── DATA ─── */
+const monthly = [
+  {month:"Jan 2025",defects:2174,maint:73,temp:70.6,vib:5.03,pres:29.9},
+  {month:"Feb 2025",defects:2108,maint:81,temp:70.1,vib:4.95,pres:30.0},
+  {month:"Mar 2025",defects:2267,maint:71,temp:70.3,vib:4.93,pres:30.3},
+  {month:"Apr 2025",defects:2213,maint:79,temp:70.0,vib:4.99,pres:29.9},
+  {month:"May 2025",defects:2327,maint:89,temp:69.9,vib:4.96,pres:29.9},
+  {month:"Jun 2025",defects:2065,maint:72,temp:69.7,vib:5.02,pres:29.9},
+  {month:"Jul 2025",defects:2185,maint:80,temp:69.9,vib:4.95,pres:30.0},
+  {month:"Aug 2025",defects:2272,maint:76,temp:69.8,vib:4.92,pres:30.2},
+  {month:"Sep 2025",defects:2163,maint:78,temp:69.5,vib:4.93,pres:29.8},
+  {month:"Oct 2025",defects:2301,maint:67,temp:69.7,vib:5.02,pres:29.9},
+  {month:"Nov 2025",defects:2164,maint:54,temp:70.2,vib:5.03,pres:30.1},
+  {month:"Dec 2025",defects:2148,maint:74,temp:69.8,vib:4.90,pres:30.1},
+  {month:"Jan 2026",defects:2163,maint:78,temp:70.2,vib:5.01,pres:29.8},
+  {month:"Feb 2026",defects:2012,maint:57,temp:69.7,vib:5.00,pres:29.9},
+  {month:"Mar 2026",defects:2189,maint:68,temp:69.9,vib:5.05,pres:29.9},
+  {month:"Apr 2026",defects:2065,maint:71,temp:69.5,vib:4.99,pres:30.0},
+  {month:"May 2026",defects:2183,maint:91,temp:69.9,vib:4.98,pres:30.0},
+  {month:"Jun 2026",defects:2095,maint:71,temp:70.2,vib:5.05,pres:30.1},
+  {month:"Jul 2026",defects:2304,maint:76,temp:70.3,vib:5.03,pres:30.0},
+  {month:"Aug 2026",defects:2278,maint:70,temp:70.1,vib:5.03,pres:30.3},
+  {month:"Sep 2026",defects:2216,maint:71,temp:70.2,vib:4.99,pres:30.1},
+  {month:"Oct 2026",defects:2131,maint:95,temp:70.4,vib:5.01,pres:29.7},
+  {month:"Nov 2026",defects:2110,maint:74,temp:70.1,vib:5.11,pres:29.8},
+  {month:"Dec 2026",defects:2307,maint:65,temp:69.7,vib:5.00,pres:29.8},
+  {month:"Jan 2027",defects:2230,maint:75,temp:69.1,vib:5.00,pres:29.8},
+  {month:"Feb 2027",defects:1958,maint:63,temp:69.7,vib:5.00,pres:30.2},
+  {month:"Mar 2027",defects:2237,maint:80,temp:70.1,vib:4.98,pres:30.0},
+  {month:"Apr 2027",defects:1006,maint:33,temp:70.0,vib:4.99,pres:30.4},
+];
+
+const machines = [
+  {id:"MX-132",defects:1391,maint:47,vib:5.04},
+  {id:"MX-100",defects:1383,maint:49,vib:4.97},
+  {id:"MX-137",defects:1341,maint:44,vib:5.05},
+  {id:"MX-118",defects:1319,maint:38,vib:5.08},
+  {id:"MX-125",defects:1289,maint:32,vib:4.95},
+  {id:"MX-121",defects:1286,maint:33,vib:5.08},
+  {id:"MX-119",defects:1281,maint:35,vib:4.91},
+  {id:"MX-123",defects:1279,maint:39,vib:5.05},
+  {id:"MX-112",defects:1276,maint:43,vib:4.95},
+  {id:"MX-103",defects:1276,maint:39,vib:4.95},
+];
+
+/* ─── CHART DEFAULTS ─── */
+Chart.defaults.color = '#7d8590';
+Chart.defaults.font.family = "'DM Sans', sans-serif";
+Chart.defaults.font.size = 11;
+
+const gridColor = 'rgba(48,54,61,0.6)';
+
+function makeGrad(ctx, c1, c2) {
+  const g = ctx.createLinearGradient(0, 0, 0, 200);
+  g.addColorStop(0, c1);
+  g.addColorStop(1, c2);
+  return g;
+}
+
+/* ─── MAIN TREND CHART ─── */
+let currentMetric = 'defects';
+let mainChart;
+
+function buildMainChart(metric) {
+  const labels = monthly.map(d => d.month.split(' ').join('\n'));
+  const values = monthly.map(d => d[metric]);
+  const colors = { defects: '#58a6ff', maint: '#f78166', vib: '#ffa657', temp: '#bc8cff' };
+  const col = colors[metric];
+
+  const ctx = document.getElementById('mainTrendChart').getContext('2d');
+  if (mainChart) mainChart.destroy();
+
+  mainChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: monthly.map(d => d.month),
+      datasets: [{
+        data: values,
+        borderColor: col,
+        backgroundColor: (ctx2) => {
+          const g = ctx2.chart.ctx.createLinearGradient(0, 0, 0, 220);
+          g.addColorStop(0, col + '44');
+          g.addColorStop(1, col + '00');
+          return g;
+        },
+        fill: true,
+        tension: 0.4,
+        borderWidth: 2,
+        pointRadius: 3,
+        pointBackgroundColor: col,
+        pointBorderColor: '#161b22',
+        pointBorderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'index' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1c2333',
+          borderColor: '#30363d',
+          borderWidth: 1,
+          titleColor: '#e6edf3',
+          bodyColor: '#7d8590',
+          callbacks: {
+            label: ctx => ` ${ctx.parsed.y.toLocaleString()}`,
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { maxRotation: 45, minRotation: 30 } },
+        y: { grid: { color: gridColor }, ticks: { callback: v => v.toLocaleString() } }
+      }
+    }
+  });
+}
+
+/* ─── PLANT DONUT ─── */
+const donutCtx = document.getElementById('plantDonut').getContext('2d');
+new Chart(donutCtx, {
+  type: 'doughnut',
+  data: {
+    labels: ['Plant A', 'Plant B', 'Plant C'],
+    datasets: [{
+      data: [19735, 20647, 19489],
+      backgroundColor: ['#58a6ff', '#f78166', '#56d364'],
+      borderColor: '#161b22',
+      borderWidth: 3,
+      hoverBorderWidth: 0,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    cutout: '68%',
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#1c2333', borderColor: '#30363d', borderWidth: 1,
+        callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed.toLocaleString()}` }
+      }
+    }
+  }
+});
+
+/* ─── SENSOR TREND BUILDER ─── */
+function miniLine(canvasId, values, color, labels) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: values,
+        borderColor: color,
+        backgroundColor: color + '18',
+        fill: true, tension: 0.4, borderWidth: 2,
+        pointRadius: 0, pointHoverRadius: 4,
+        pointBackgroundColor: color,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'index' },
+      plugins: { legend: { display: false }, tooltip: {
+        backgroundColor: '#1c2333', borderColor: '#30363d', borderWidth: 1,
+        titleColor: '#e6edf3', bodyColor: '#7d8590',
+      }},
+      scales: {
+        x: { display: false },
+        y: { grid: { color: gridColor }, ticks: { maxTicksLimit: 4 } }
+      }
+    }
+  });
+}
+
+const labels = monthly.map(d => d.month);
+miniLine('tempChart', monthly.map(d => d.temp), '#bc8cff', labels);
+miniLine('vibChart', monthly.map(d => d.vib), '#ffa657', labels);
+miniLine('presChart', monthly.map(d => d.pres), '#2dd4bf', labels);
+
+/* ─── MAINTENANCE BAR CHART ─── */
+const maintCtx = document.getElementById('maintChart').getContext('2d');
+new Chart(maintCtx, {
+  type: 'bar',
+  data: {
+    labels: monthly.map(d => d.month),
+    datasets: [{
+      data: monthly.map(d => d.maint),
+      backgroundColor: monthly.map(d => d.maint > 85 ? '#f78166cc' : '#58a6ff88'),
+      borderColor: monthly.map(d => d.maint > 85 ? '#f78166' : '#58a6ff'),
+      borderWidth: 1,
+      borderRadius: 3,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { intersect: false, mode: 'index' },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#1c2333', borderColor: '#30363d', borderWidth: 1,
+        titleColor: '#e6edf3', bodyColor: '#7d8590',
+        callbacks: { label: ctx => ` ${ctx.parsed.y} events` }
+      }
+    },
+    scales: {
+      x: { display: false },
+      y: { grid: { color: gridColor }, ticks: { maxTicksLimit: 5 } }
+    }
+  }
+});
+
+/* ─── BAR RACE (top machines) ─── */
+const barColors = ['#58a6ff','#f78166','#56d364','#ffa657','#bc8cff','#2dd4bf','#d2a8ff','#7ee787','#ff7b72','#79c0ff'];
+const maxDef = machines[0].defects;
+const barRace = document.getElementById('barRace');
+machines.forEach((m, i) => {
+  const pct = (m.defects / maxDef * 100).toFixed(1);
+  const div = document.createElement('div');
+  div.className = 'br-item';
+  div.innerHTML = `
+    <div class="br-header">
+      <span class="br-id">${m.id}</span>
+      <span class="br-val">${m.defects.toLocaleString()} defects</span>
+    </div>
+    <div class="br-track">
+      <div class="br-fill" style="width:0%;background:${barColors[i]}" data-pct="${pct}"></div>
+    </div>`;
+  barRace.appendChild(div);
+});
+setTimeout(() => {
+  document.querySelectorAll('.br-fill').forEach(el => {
+    el.style.width = el.dataset.pct + '%';
+  });
+}, 300);
+
+/* ─── RISK TABLE ─── */
+function riskLevel(def) {
+  if (def >= 1380) return ['Critical', 'pill-critical'];
+  if (def >= 1310) return ['High Risk', 'pill-high'];
+  if (def >= 1280) return ['Warning', 'pill-warning'];
+  return ['Normal', 'pill-normal'];
+}
+const tbody = document.getElementById('riskTableBody');
+machines.forEach((m, i) => {
+  const [label, cls] = riskLevel(m.defects);
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td style="color:var(--muted);font-family:'Space Mono',monospace">${String(i+1).padStart(2,'0')}</td>
+    <td style="font-family:'Space Mono',monospace;font-weight:700">${m.id}</td>
+    <td style="font-family:'Space Mono',monospace">${m.defects.toLocaleString()}</td>
+    <td style="font-family:'Space Mono',monospace">${m.maint}</td>
+    <td style="font-family:'Space Mono',monospace">${m.vib} mm/s</td>
+    <td><span class="status-pill ${cls}">${label}</span></td>`;
+  tbody.appendChild(tr);
+});
+
+/* ─── FILTER INTERACTIONS ─── */
+function setMetric(metric, btn) {
+  currentMetric = metric;
+  document.querySelectorAll('.filters .filter-btn').forEach(b => {
+    if (['metricDefects','metricMaint','metricVib','metricTemp'].includes(b.id)) b.classList.remove('active');
+  });
+  btn.classList.add('active');
+
+  const titles = { defects:'Monthly Defect Trend', maint:'Monthly Maintenance Events', vib:'Monthly Avg Vibration (mm/s)', temp:'Monthly Avg Temperature (°C)' };
+  const totals = { defects:'59,871 total', maint:'2,032 events', vib:'5.0 mm/s avg', temp:'69.9°C avg' };
+  document.getElementById('trend-title').textContent = titles[metric];
+  document.getElementById('trend-total').textContent = totals[metric];
+  buildMainChart(metric);
+}
+
+function setPlant(plant, btn) {
+  document.querySelectorAll('.filters .filter-btn').forEach(b => {
+    if (['All','Plant_A','Plant_B','Plant_C'].includes(b.textContent.replace(' ','_').replace('Plant ','Plant_'))) {
+      b.classList.remove('active');
+    }
+  });
+  btn.classList.add('active');
+}
+
+/* ─── INIT ─── */
+buildMainChart('defects');
+</script>
+</body>
+</html>
